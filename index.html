@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu Cronograma de Leitura Bíblica</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        /* Estilos customizados de status conforme pedido */
+        .status-concluido {
+            background-color: #ecfdf5;
+            border-color: #10b981;
+            color: #065f46;
+        }
+        .status-hoje {
+            background-color: #fffbeb;
+            border-color: #f59e0b;
+            color: #92400e;
+            box-shadow: 0 4px 6px -1px rgba(245, 158, 11, 0.15);
+        }
+        .status-atrasado {
+            background-color: #fef2f2;
+            border-color: #ef4444;
+            color: #991b1b;
+        }
+        .status-futuro {
+            background-color: #eff6ff;
+            border-color: #3b82f6;
+            color: #1e40af;
+        }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col">
+
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+        <div class="max-w-4xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-slate-900 tracking-tight">Leitura Bíblica</h1>
+                    <p class="text-xs text-slate-500">Organize sua jornada diária nas escrituras</p>
+                </div>
+            </div>
+            
+            <div class="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+                <div class="flex bg-slate-100 p-1 rounded-xl w-full sm:w-auto">
+                    <button onclick="switchTab('principal')" id="tab-btn-principal" class="flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-lg transition-all bg-white text-slate-900 shadow-sm">
+                        Cronograma
+                    </button>
+                    <button onclick="switchTab('dados')" id="tab-btn-dados" class="flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-lg transition-all text-slate-600 hover:text-slate-900">
+                        Inserir Dados
+                    </button>
+                </div>
+
+                <div id="auth-container" class="w-full sm:w-auto flex justify-center">
+                    <button id="btn-login" onclick="loginGoogle()" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm whitespace-nowrap">
+                        Entrar com Google
+                    </button>
+                    <div id="user-profile" class="hidden flex items-center gap-2 bg-slate-100 pl-2 pr-3 py-1 rounded-xl border border-slate-200">
+                        <img id="user-photo" src="" alt="Avatar" class="w-7 h-7 rounded-full border border-slate-300">
+                        <span id="user-name" class="text-xs font-medium text-slate-700 max-w-[100px] truncate"></span>
+                        <button onclick="logoutFirebase()" class="text-xs text-red-500 hover:text-red-700 font-semibold ml-1">Sair</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-4xl w-full mx-auto px-4 py-6">
+        
+        <div id="tab-principal" class="tab-content active space-y-6">
+            <div class="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                <div>
+                    <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Visualização Atual</h2>
+                    <p class="text-xs text-slate-400">Marque as caixas ao concluir as leituras.</p>
+                </div>
+                <button onclick="exportarPDF()" class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Gerar PDF Lindo
+                </button>
+            </div>
+
+            <div id="cronograma-container" class="space-y-6">
+                </div>
+        </div>
+
+        <div id="tab-dados" class="tab-content space-y-4">
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-900">Configurar Dados do Cronograma</h2>
+                    <p class="text-sm text-slate-500">Cole abaixo o texto do seu planejamento. O sistema identificará os meses e as datas automaticamente.</p>
+                </div>
+                
+                <div>
+                    <label for="raw-data" class="block text-xs font-semibold text-slate-400 uppercase mb-2">Campo de Texto (Ilimitado)</label>
+                    <textarea id="raw-data" rows="18" class="w-full p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm bg-slate-50" placeholder="Cole aqui seu cronograma..."></textarea>
+                </div>
+
+                <div class="flex justify-end gap-3">
+                    <button onclick="restaurarExemplo()" class="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors">
+                        Restaurar Exemplo
+                    </button>
+                    <button onclick="salvarDados()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium transition-colors shadow-sm">
+                        Salvar e Atualizar Cronograma
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-400 mt-12">
+        Meu Cronograma Bíblico &copy; 2026 - Desenvolvido com foco em organização e design moderno.
+    </footer>
+
+    <script type="module">
+        // Importando os SDKs do Firebase v12 conforme o padrão CDN solicitado
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+
+        // Configuração fornecida do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyBgy4WC1xgggNr_BTs4o7dfQIeYw2n16Ms",
+            authDomain: "cronograma-fca31.firebaseapp.com",
+            projectId: "cronograma-fca31",
+            storageBucket: "cronograma-fca31.firebasestorage.app",
+            messagingSenderId: "821259339304",
+            appId: "1:821259339304:web:c569eab4130e70860d171d"
+        };
+
+        // Inicializar Firebase, Auth e Firestore
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const provider = new GoogleAuthProvider();
+
+        let currentUser = null;
+
+        // Dados de exemplo iniciais caso o usuário não tenha nada salvo
+        const exemploDados = `Junho / 2026
+09/06 (Terça - Hoje!): Gn 1 e 2 + Gn 3 - 5
+10/06 (Quarta): Gn 6 - 9
+11/06 (Quinta): Gn 10 e 11 + Gn 12 - 15
+12/06 (Sexta): Gn 16 - 19
+🛑 13/06 e 14/06: Fim de semana (Descanso)
+15/06 (Segunda): Gn 20 - 22
+16/06 (Terça): Gn 23 - 26 + Gn 27 - 29
+17/06 (Quarta): Gn 30 - 32
+18/06 (Quinta): Gn 33 - 36 + Gn 37 - 39
+19/06 (Sexta): Gn 40 - 42
+🛑 20/06 e 21/06: Fim de semana (Descanso)
+22/06 (Segunda): Gn 43 - 46
+23/06 (Terça): Gn 47 - 50 + Jó 1 - 4
+24/06 (Quarta): Jó 5 - 7
+25/06 (Quinta): Jó 8 - 10 + Jó 11 - 13
+26/06 (Sexta): Jó 14 - 17
+🛑 27/06 e 28/06: Fim de semana (Descanso)
+29/06 (Segunda): Jó 18 - 20
+30/06 (Terça): Jó 21 - 24 + Jó 25 - 27
+📅 Julho / 2026
+01/07 (Quarta): Jó 28 - 31
+02/07 (Quinta): Jó 32 - 34 + Jó 35 - 37
+03/07 (Sexta): Jó 38 - 42
+🛑 04/07 e 05/07: Fim de semana
+06/07 (Segunda): Êx 1 - 4
+07/07 (Terça): Êx 5 - 7 + Êx 8 - 10
+08/07 (Quarta): Êx 11 - 13
+09/07 (Quinta): Êx 14 - 17 + Êx 18 - 20
+10/07 (Sexta): Êx 21 - 24`;
+
+        // Inicializar estados internos da aplicação
+        let leituraStatus = {};
+        let textoCronograma = "";
+
+        // Mapa de meses em português para identificar o ano corrente
+        const mesesMap = {
+            'janeiro': 0, 'fevereiro': 1, 'março': 2, 'abril': 3, 'maio': 4, 'junho': 5,
+            'julho': 6, 'agosto': 7, 'setembro': 8, 'outubro': 9, 'novembro': 10, 'dezembro': 11
+        };
+
+        // Escutar alterações no Estado de Autenticação do Usuário
+        onAuthStateChanged(auth, async (user) => {
+            const btnLogin = document.getElementById('btn-login');
+            const userProfile = document.getElementById('user-profile');
+            const userPhoto = document.getElementById('user-photo');
+            const userName = document.getElementById('user-name');
+
+            if (user) {
+                currentUser = user;
+                if (btnLogin) btnLogin.classList.add('hidden');
+                if (userProfile) userProfile.classList.remove('hidden');
+                if (userPhoto) userPhoto.src = user.photoURL || '';
+                if (userName) userName.textContent = user.displayName || 'Usuário';
+
+                // Buscar dados salvos na nuvem do Firestore correspondente ao ID do Usuário
+                const docRef = doc(db, "cronograma_usuarios", user.uid);
+                const docSnap = await getDoc(docRef);
+
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    leituraStatus = data.leituraStatus || {};
+                    textoCronograma = data.textoCronograma || exemploDados;
+                } else {
+                    // Se o usuário acabou de criar a conta, migra o localStorage atual ou usa o padrão
+                    leituraStatus = JSON.parse(localStorage.getItem('leituraStatus')) || {};
+                    textoCronograma = localStorage.getItem('textoCronograma') || exemploDados;
+                    // Salva inicialmente na nuvem
+                    await setDoc(docRef, {
+                        textoCronograma: textoCronograma,
+                        leituraStatus: leituraStatus
+                    });
+                }
+            } else {
+                currentUser = null;
+                if (btnLogin) btnLogin.classList.remove('hidden');
+                if (userProfile) userProfile.classList.add('hidden');
+
+                // Fallback local caso o usuário esteja desconectado
+                leituraStatus = JSON.parse(localStorage.getItem('leituraStatus')) || {};
+                textoCronograma = localStorage.getItem('textoCronograma') || exemploDados;
+            }
+
+            document.getElementById('raw-data').value = textoCronograma;
+            renderCronograma();
+        });
+
+        // Alternância de Abas (Modificado para funcionar com o escopo global dos módulos)
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.getElementById('tab-' + tabName).classList.add('active');
+
+            document.getElementById('tab-btn-principal').className = tabName === 'principal' ? 
+                "flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-lg transition-all bg-white text-slate-900 shadow-sm" : 
+                "flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-lg transition-all text-slate-600 hover:text-slate-900";
+            
+            document.getElementById('tab-btn-dados').className = tabName === 'dados' ? 
+                "flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-lg transition-all bg-white text-slate-900 shadow-sm" : 
+                "flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-lg transition-all text-slate-600 hover:text-slate-900";
+        }
+        window.switchTab = switchTab;
+
+        // Salvar dados da aba secundária (Local + Sincronização no Cloud Firestore)
+        async function salvarDados() {
+            textoCronograma = document.getElementById('raw-data').value;
+            localStorage.setItem('textoCronograma', textoCronograma);
+
+            if (currentUser) {
+                const docRef = doc(db, "cronograma_usuarios", currentUser.uid);
+                await setDoc(docRef, { textoCronograma: textoCronograma }, { merge: true });
+            }
+
+            renderCronograma();
+            switchTab('principal');
+        }
+        window.salvarDados = salvarDados;
+
+        // Restaura o exemplo inicial fornecido
+        function restaurarExemplo() {
+            if(confirm("Deseja realmente restaurar os dados de exemplo padrão? Isso substituirá o texto atual.")) {
+                document.getElementById('raw-data').value = exemploDados;
+                salvarDados();
+            }
+        }
+        window.restaurarExemplo = restaurarExemplo;
+
+        // Alternar Estado de Lido / Não Lido ao Clicar (Sincronizado no Cloud Firestore)
+        async function toggleLeitura(id) {
+            leituraStatus[id] = !leituraStatus[id];
+            localStorage.setItem('leituraStatus', JSON.stringify(leituraStatus));
+
+            if (currentUser) {
+                const docRef = doc(db, "cronograma_usuarios", currentUser.uid);
+                await setDoc(docRef, { leituraStatus: leituraStatus }, { merge: true });
+            }
+
+            renderCronograma();
+        }
+        window.toggleLeitura = toggleLeitura;
+
+        // Processar Texto Bruto e Renderizar na Tela
+        function renderCronograma() {
+            const container = document.getElementById('cronograma-container');
+            container.innerHTML = '';
+
+            const linhas = textoCronograma.split('\n');
+            
+            const hoje = new Date(2026, 5, 9); 
+            hoje.setHours(0,0,0,0);
+
+            let anoAtual = 2026;
+            let mesAtual = 5;
+
+            let currentMonthDiv = null;
+            let currentMonthList = null;
+
+            linhas.forEach((linha, index) => {
+                const linhaTrim = linha.trim();
+                if (!linhaTrim) return;
+
+                const regexMes = /(janeiro|fevereiro|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s*\/\s*(\d{4})/i;
+                const matchMes = linhaTrim.match(regexMes);
+
+                if (matchMes) {
+                    const nomeMes = matchMes[1].toLowerCase();
+                    anoAtual = parseInt(matchMes[2]);
+                    mesAtual = mesesMap[nomeMes];
+
+                    currentMonthDiv = document.createElement('div');
+                    currentMonthDiv.className = "bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden p-6 space-y-4 page-break-inside-avoid";
+                    
+                    const headerMes = document.createElement('h3');
+                    headerMes.className = "text-lg font-bold text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-2";
+                    headerMes.innerHTML = `<span>📅</span> ${linhaTrim.replace('📅', '').trim()}`;
+                    currentMonthDiv.appendChild(headerMes);
+
+                    currentMonthList = document.createElement('div');
+                    currentMonthList.className = "space-y-2.5";
+                    currentMonthDiv.appendChild(currentMonthList);
+
+                    container.appendChild(currentMonthDiv);
+                    return;
+                }
+
+                const regexData = /(\d{2})\/(\d{2})/g;
+                const matchesData = linhaTrim.match(regexData);
+
+                if (matchesData && matchesData.length > 0) {
+                    const [dia, mesStr] = matchesData[0].split('/');
+                    const dataItem = new Date(anoAtual, parseInt(mesStr) - 1, parseInt(dia));
+                    dataItem.setHours(0,0,0,0);
+
+                    const itemID = `lei-${dia}-${mesStr}-${anoAtual}-${index}`;
+                    const isConcluido = !!leituraStatus[itemID];
+
+                    let classeStatus = "";
+                    let tagTexto = "";
+
+                    if (isConcluido) {
+                        classeStatus = "status-concluido";
+                        tagTexto = "Lido ✔";
+                    } else {
+                        if (dataItem.getTime() === hoje.getTime()) {
+                            classeStatus = "status-hoje ring-2 ring-amber-400 font-medium scale-[1.01]";
+                            tagTexto = "Hoje 📌";
+                        } else if (dataItem.getTime() < hoje.getTime()) {
+                            classeStatus = "status-atrasado";
+                            tagTexto = "Pendente 🛑";
+                        } else {
+                            classeStatus = "status-futuro";
+                            tagTexto = "Próximo 🗓";
+                        }
+                    }
+
+                    const itemRow = document.createElement('div');
+                    itemRow.className = `flex items-center justify-between p-3.5 border rounded-xl transition-all duration-200 ${classeStatus}`;
+                    
+                    const esquerdo = document.createElement('div');
+                    esquerdo.className = "flex items-center gap-3 flex-1 cursor-pointer";
+                    esquerdo.onclick = () => toggleLeitura(itemID);
+
+                    const checkbox = document.createElement('input');
+                    checkbox.type = "checkbox";
+                    checkbox.checked = isConcluido;
+                    checkbox.className = "h-5 w-5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer";
+                    checkbox.onclick = (e) => e.stopPropagation(); 
+                    checkbox.onchange = () => toggleLeitura(itemID);
+
+                    const textoCorpo = document.createElement('span');
+                    textoCorpo.className = "text-sm tracking-wide leading-relaxed";
+                    textoCorpo.textContent = linhaTrim;
+
+                    esquerdo.appendChild(checkbox);
+                    esquerdo.appendChild(textoCorpo);
+
+                    const direito = document.createElement('div');
+                    direito.className = "text-xs font-semibold px-2.5 py-1 rounded-md opacity-90 shadow-2xs whitespace-nowrap ml-2";
+                    direito.textContent = tagTexto;
+
+                    itemRow.appendChild(esquerdo);
+                    itemRow.appendChild(direito);
+
+                    if (currentMonthList) {
+                        currentMonthList.appendChild(itemRow);
+                    } else {
+                        const genericBox = document.createElement('div');
+                        genericBox.className = "bg-white p-4 rounded-xl border border-slate-200 space-y-2 mb-4";
+                        genericBox.appendChild(itemRow);
+                        container.appendChild(genericBox);
+                    }
+                } else {
+                    if(linhaTrim.length > 0 && currentMonthList) {
+                        const infoNode = document.createElement('p');
+                        infoNode.className = "text-xs text-slate-400 italic pl-2 py-1";
+                        infoNode.textContent = linhaTrim;
+                        currentMonthList.appendChild(infoNode);
+                    }
+                }
+            });
+
+            if (container.children.length === 0) {
+                container.innerHTML = `<div class="text-center py-12 bg-white rounded-xl border border-dashed border-slate-300 text-slate-400 text-sm">
+                    Nenhum dado cadastrado. Vá até a aba "Inserir Dados" para preencher seu cronograma.
+                </div>`;
+            }
+        }
+        window.renderCronograma = renderCronograma;
+
+        // GERAÇÃO DE PDF
+        function exportarPDF() {
+            const elementoOriginal = document.getElementById('cronograma-container');
+            const cloneParaPrint = elementoOriginal.cloneNode(true);
+
+            const inputs = cloneParaPrint.querySelectorAll('input[type="checkbox"]');
+            inputs.forEach(input => {
+                const indicador = document.createElement('span');
+                indicador.className = "font-mono font-bold mr-2 text-base";
+                indicador.textContent = input.checked ? "[✔] " : "[  ] ";
+                input.parentNode.replaceChild(indicador, input);
+            });
+
+            const pdfWrapper = document.createElement('div');
+            pdfWrapper.className = "p-8 bg-white space-y-6";
+            
+            const pdfHeader = document.createElement('div');
+            pdfHeader.className = "border-b-2 border-slate-800 pb-4 mb-6 text-center";
+            pdfHeader.innerHTML = `
+                <h1 style="font-size: 24px; font-weight: bold; color: #1e293b; margin-bottom: 4px;">Meu Plano de Leitura Bíblica</h1>
+                <p style="font-size: 12px; color: #64748b;">Relatório gerado em ${new Date().toLocaleDateString('pt-BR')}</p>
+            `;
+            pdfWrapper.appendChild(pdfHeader);
+            pdfWrapper.appendChild(cloneParaPrint);
+
+            const opcoes = {
+                margin:       [12, 12, 12, 12],
+                filename:     'cronograma-leitura-biblica.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                pagebreak:    { mode: ['avoid-all', 'css'] }
+            };
+
+            html2pdf().set(opcoes).from(pdfWrapper).save();
+        }
+        window.exportarPDF = exportarPDF;
+
+        // Métodos de Controle da Autenticação Expostos Globalmente
+        async function loginGoogle() {
+            try {
+                await signInWithPopup(auth, provider);
+            } catch (error) {
+                console.error("Erro ao fazer login:", error);
+                alert("Erro ao realizar login através do Google.");
+            }
+        }
+        window.loginGoogle = loginGoogle;
+
+        async function logoutFirebase() {
+            try {
+                await signOut(auth);
+            } catch (error) {
+                console.error("Erro ao deslogar:", error);
+            }
+        }
+        window.logoutFirebase = logoutFirebase;
+    </script>
+</body>
+</html>
