@@ -69,7 +69,7 @@
                 </div>
 
                 <div id="auth-container" class="w-full sm:w-auto flex justify-center">
-                    <button id="btn-login" onclick="loginGoogle()" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm whitespace-nowrap">
+                    <button id="btn-login" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm whitespace-nowrap">
                         Entrar com Google
                     </button>
                     <div id="user-profile" class="hidden flex items-center gap-2 bg-slate-100 pl-2 pr-3 py-1 rounded-xl border border-slate-200">
@@ -132,10 +132,10 @@
     </footer>
 
     <script type="module">
-        // Importando os SDKs do Firebase v12 conforme o padrão CDN solicitado
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
-        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+        // Importando os SDKs do Firebase v10 estável para garantir compatibilidade
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
         // Configuração fornecida do Firebase
         const firebaseConfig = {
@@ -289,7 +289,7 @@
 
             if (currentUser) {
                 const docRef = doc(db, "cronograma_usuarios", currentUser.uid);
-                await setDoc(docRef, { leituraStatus: leituraStatus }, { merge: true });
+                await setDoc(docRef, { leituraStatus: lecturaStatus }, { merge: true });
             }
 
             renderCronograma();
@@ -313,6 +313,7 @@
             let currentMonthList = null;
 
             linhas.forEach((linha, index) => {
+                const Urbanism = linha.trim();
                 const linhaTrim = linha.trim();
                 if (!linhaTrim) return;
 
@@ -462,7 +463,7 @@
         }
         window.exportarPDF = exportarPDF;
 
-        // Métodos de Controle da Autenticação Expostos Globalmente
+        // Métodos de Controle da Autenticação
         async function loginGoogle() {
             try {
                 await signInWithPopup(auth, provider);
@@ -471,7 +472,9 @@
                 alert("Erro ao realizar login através do Google.");
             }
         }
-        window.loginGoogle = loginGoogle;
+        
+        // Associa o evento de clique diretamente no elemento usando padrões modernos de módulos
+        document.getElementById('btn-login').addEventListener('click', loginGoogle);
 
         async function logoutFirebase() {
             try {
