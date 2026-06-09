@@ -365,9 +365,9 @@ Junho / 2026
                     return;
                 }
 
-                // Check for dates DD/MM
+                // Check for dates DD/MM (Excludes weekends from being processed as readings)
                 const dateMatches = trimmed.match(/\d{2}\/\d{2}/g);
-                if (dateMatches && dateMatches.length > 0) {
+                if (dateMatches && dateMatches.length > 0 && !/fim de semana/i.test(trimmed)) {
                     const datesParsed = dateMatches.map(dStr => {
                         const [d, m] = dStr.split('/').map(n => parseInt(n, 10));
                         return new Date(currentYear, m - 1, d);
