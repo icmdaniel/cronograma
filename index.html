@@ -118,7 +118,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
                         <div>
-                            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Progresso Geral</span>
+                            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Meu Progresso</span>
                             <div class="flex items-baseline gap-2 mt-1">
                                 <span id="stats-percentage" class="text-3xl font-bold text-slate-900">0%</span>
                                 <span id="stats-counts" class="text-xs text-slate-500">(0 de 0 lidos)</span>
@@ -129,7 +129,18 @@
                         </div>
                     </div>
 
-                    <div id="today-summary-box" class="bg-amber-50 p-5 rounded-2xl border border-amber-200 shadow-sm md:col-span-2 flex flex-col justify-between">
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                        <div>
+                            <span class="text-xs font-bold text-amber-700 uppercase tracking-wider flex items-center gap-1.5">
+                                <i class="fa-solid fa-trophy text-amber-500"></i> Placar da Disputa
+                            </span>
+                            <div id="leaderboard-zone" class="mt-2.5 space-y-2">
+                                <p class="text-xs text-slate-400 py-2">Carregando placar...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="today-summary-box" class="bg-amber-50 p-5 rounded-2xl border border-amber-200 shadow-sm flex flex-col justify-between">
                         <div>
                             <div class="flex items-center justify-between">
                                 <span class="text-xs font-bold text-amber-700 uppercase tracking-wider flex items-center gap-1.5">
@@ -137,11 +148,10 @@
                                 </span>
                                 <span id="today-date-str" class="text-xs font-medium text-amber-600"></span>
                             </div>
-                            <p id="today-reading-text" class="text-base font-semibold text-slate-900 mt-2">Nenhuma leitura agendada para hoje.</p>
+                            <p id="today-reading-text" class="text-sm font-semibold text-slate-900 mt-2 truncate">Nenhuma leitura agendada para hoje.</p>
                         </div>
-                        <div class="mt-4 flex justify-between items-center">
-                            <span class="text-xs text-amber-700 italic">Mantenha a constância!</span>
-                            <button id="btn-pdf" class="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold py-2 px-4 rounded-xl shadow transition">
+                        <div class="mt-4 flex justify-between items-center gap-2">
+                            <button id="btn-pdf" class="w-full inline-flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold py-2 px-3 rounded-xl shadow transition">
                                 <i class="fa-solid fa-file-pdf"></i> Exportar PDF Lindo
                             </button>
                         </div>
@@ -216,7 +226,7 @@ Junho / 2026
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
 
         // Your web app's Firebase configuration
         const firebaseConfig = {
@@ -293,6 +303,8 @@ Junho / 2026
                 
                 // Realtime listen to user data inside Firestore
                 listenToUserProgress(user.uid);
+                // Realtime listen to global user leaderboard data for the dispute
+                listenToCompetition();
             } else {
                 currentUser = null;
                 loginContainer.classList.remove('hidden');
@@ -303,22 +315,96 @@ Junho / 2026
         // Firestore real-time synchronize function
         function listenToUserProgress(uid) {
             const docRef = doc(db, "schedules", uid);
-            onSnapshot(docRef, (docSnap) => {
+            onSnapshot(docRef, async (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     rawScheduleInput.value = data.rawText || "";
                     progressMap = data.progress || {};
                     if (data.rawText) {
                         processAndRenderSchedule(data.rawText);
+                        
+                        // Sync percentage metric into Firestore to populate leaderboard smoothly
+                        const totalReadings = scheduleItems.filter(i => i.type === 'reading').length;
+                        const completed = scheduleItems.filter(i => i.type === 'reading' && progressMap[i.id]).length;
+                        const currentPct = totalReadings > 0 ? Math.round((completed / totalReadings) * 100) : 0;
+                        
+                        if (data.percentage !== currentPct || data.userName !== currentUser.displayName) {
+                            setDoc(docRef, {
+                                percentage: currentPct,
+                                userName: currentUser.displayName || "Usuário",
+                                userPhoto: currentUser.photoURL || ""
+                            }, { merge: true }).catch(err => console.error(err));
+                        }
                     } else {
                         renderEmptyState();
                     }
                 } else {
                     // Injecting Default Template data if completely blank
-                    const defaultText = `Junho / 2026\n09/06 (Terça - Hoje!): Gn 1 e 2 + Gn 3 - 5\n10/06 (Quarta): Gn 6 - 9\n11/06 (Quinta): Gn 10 e 11 + Gn 12 - 15\n12/06 (Sexta): Gn 16 - 19\n🛑 13/06 e 14/06: Fim de semana (Descanso)\n15/06 (Segunda): Gn 20 - 22\n16/06 (Terça): Gn 23 - 26 + Gn 27 - 29\n17/06 (Quarta): Gn 30 - 32\n18/06 (Quinta): Gn 33 - 36 + Gn 37 - 39\n19/06 (Sexta): Gn 40 - 42\n🛑 20/06 e 21/06: Fim de semana (Descanso)\n22/06 (Segunda): Gn 43 - 46\n23/06 (Terça): Gn 47 - 50 + Jó 1 - 4\n24/06 (Quarta): Jó 5 - 7\n25/06 (Quinta): Jó 8 - 10 + Jó 11 - 13\n26/06 (Sexta): Jó 14 - 17\n🛑 27/06 e 28/06: Fim de semana (Descanso)\n29/06 (Segunda): Jó 18 - 20\n30/06 (Terça): Jó 21 - 24 + Jó 25 - 27\n📅 Julho / 2026\n01/07 (Quarta): Jó 28 - 31\n02/07 (Quinta): Jó 32 - 34 + Jó 35 - 37\n03/07 (Sexta): Jó 38 - 42\n🛑 04/07 e 05/07: Fim de semana\n06/07 (Segunda): Êx 1 - 4\n07/07 (Terça): Êx 5 - 7 + Êx 8 - 10\n08/07 (Quarta): Êx 11 - 13\n09/07 (Quinta): Êx 14 - 17 + Êx 18 - 20\n10/07 (Sexta): Êx 21 - 24.`.replace(/\\n/g, '\n');
+                    const defaultText = `Junho / 2026\n09/06 (Terça - Hoje!): Gn 1 e 2 + Gn 3 - 5\n10/06 (Quarta): Gn 6 - 9\n11/06 (Quinta): Gn 10 e 11 + Gn 12 - 15\n12/06 (Sexta): Gn 16 - 19\n🛑 13/06 e 14/06: Fim de semana (Descanso)\n15/06 (Segunda): Gn 20 - 22\n16/06 (Terça): Gn 23 - 26 + Gn 27 - 29\n17/06 (Quarta): Gn 30 - 32\n18/06 (Quinta): Gn 33 - 36 + Gn 37 - 39\n19/06 (Sexta): Gn 40 - 42\n🛑 20/06 e 21/06: Fim de semana (Descanso)\n22/06 (Segunda): Gn 43 - 46\n23/06 (Terça): Gn 47 - 50 + Jó 1 - 4\n24/06 (Quarta): Jó 5 - 7\n25/06 (Quinta): Jó 8 - 10 + Jó 11 - 13\n26/06 (Sexta): Jó 14 - 17\n🛑 27/06 e 28/06: Fim de semana (Descanso)\n29/06 (Segunda): Jó 18 - 20\n30/06 (Terça): Jó 21 - 24 + Jó 25 - 27\n📅 Julho / 2026\n01/07 (Quarta): Jó 28 - 31\n02/07 (Quinta): Jó 32 - 34 + Jó 35 - 37\n03/07 (Sexta): Jó 38 - 42\n🛑 04/07 e 05/07: Fim de semana\n06/07 (Segunda): Êx 1 - 4\n07/07 (Terça): Êx 5 - 7 + Êx 8 - 10\n08/07 (Quarta): Êx 11 - 13\n09/07 (Quinta): Êx 14 - 17 + Êx 18 - 20\n10/07 (Sexta): Êx 21 - 24.`.replace(/\n/g, '\n');
                     rawScheduleInput.value = defaultText;
+                    try {
+                        await setDoc(docRef, {
+                            rawText: defaultText,
+                            percentage: 0,
+                            progress: {},
+                            userName: currentUser.displayName || "Usuário",
+                            userPhoto: currentUser.photoURL || ""
+                        }, { merge: true });
+                    } catch(e) {
+                        console.error(e);
+                    }
                     renderEmptyState();
                 }
+            });
+        }
+
+        // Listen to everyone's score for real-time race scoreboard updates
+        function listenToCompetition() {
+            onSnapshot(collection(db, "schedules"), (querySnapshot) => {
+                const leaderboardZone = document.getElementById('leaderboard-zone');
+                if (!leaderboardZone) return;
+
+                let usersProgress = [];
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    if (data.userName && data.percentage !== undefined) {
+                        usersProgress.push({
+                            name: data.userName,
+                            photo: data.userPhoto || "https://www.gravatar.com/avatar/?d=mp",
+                            percentage: data.percentage,
+                            uid: doc.id
+                        });
+                    }
+                });
+
+                usersProgress.sort((a, b) => b.percentage - a.percentage);
+
+                let html = "";
+                usersProgress.forEach((u, idx) => {
+                    const isMe = currentUser && u.uid === currentUser.uid;
+                    let medal = "🏃";
+                    if (idx === 0) medal = "🥇";
+                    if (idx === 1) medal = "🥈";
+                    
+                    html += `
+                        <div class="flex items-center justify-between p-2 rounded-xl border ${isMe ? 'bg-amber-50 border-amber-300' : 'bg-slate-50 border-slate-100'}">
+                            <div class="flex items-center gap-2 overflow-hidden">
+                                <span class="text-xs font-bold text-slate-400">${idx + 1}°</span>
+                                <img src="${u.photo}" class="w-6 h-6 rounded-full border border-slate-200 flex-shrink-0">
+                                <span class="text-xs font-semibold text-slate-700 truncate">${u.name.split(' ')[0]}</span>
+                            </div>
+                            <div class="flex items-center gap-1 flex-shrink-0">
+                                <span class="text-xs font-bold text-slate-900">${u.percentage}%</span>
+                                <span class="text-xs">${medal}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                if (usersProgress.length === 0) {
+                    html = `<p class="text-xs text-slate-400 py-2">Nenhum competidor cadastrado.</p>`;
+                }
+                leaderboardZone.innerHTML = html;
             });
         }
 
@@ -326,9 +412,17 @@ Junho / 2026
         btnSaveSchedule.addEventListener('click', async () => {
             if (!currentUser) return;
             const text = rawScheduleInput.value;
+            const parsedItems = parseScheduleText(text);
+            const totalReadings = parsedItems.filter(i => i.type === 'reading').length;
+            const completed = parsedItems.filter(i => i.type === 'reading' && progressMap[i.id]).length;
+            const currentPct = totalReadings > 0 ? Math.round((completed / totalReadings) * 100) : 0;
+
             try {
                 await setDoc(doc(db, "schedules", currentUser.uid), {
-                    rawText: text
+                    rawText: text,
+                    percentage: currentPct,
+                    userName: currentUser.displayName || "Usuário",
+                    userPhoto: currentUser.photoURL || ""
                 }, { merge: true });
                 alert("Cronograma updated com sucesso!");
                 switchTab('main');
@@ -524,9 +618,16 @@ Junho / 2026
                     
                     progressMap[id] = checked;
                     
+                    const totalReadings = scheduleItems.filter(i => i.type === 'reading').length;
+                    const completed = scheduleItems.filter(i => i.type === 'reading' && progressMap[i.id]).length;
+                    const currentPct = totalReadings > 0 ? Math.round((completed / totalReadings) * 100) : 0;
+
                     try {
                         await setDoc(doc(db, "schedules", currentUser.uid), {
-                            progress: progressMap
+                            progress: progressMap,
+                            percentage: currentPct,
+                            userName: currentUser.displayName || "Usuário",
+                            userPhoto: currentUser.photoURL || ""
                         }, { merge: true });
                     } catch (err) {
                         console.error("Erro ao salvar progresso:", err);
