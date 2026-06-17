@@ -284,7 +284,7 @@ Junho / 2026
                 loginContainer.classList.add('hidden');
                 appContainer.classList.remove('hidden');
                 
-                listenToUserProgress(user.uid);
+                listenToUserProgress();
             } else {
                 currentUser = null;
                 loginContainer.classList.remove('hidden');
@@ -292,8 +292,8 @@ Junho / 2026
             }
         });
 
-        function listenToUserProgress(uid) {
-            const docRef = doc(db, "schedules", uid);
+        function listenToUserProgress() {
+            const docRef = doc(db, "schedules", "global_shared_schedule");
             onSnapshot(docRef, (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
@@ -314,8 +314,8 @@ Junho / 2026
             if (!currentUser) return;
             const text = rawScheduleInput.value;
             try {
-                // Salva o cronograma completo no Firebase
-                await setDoc(doc(db, "schedules", currentUser.uid), {
+                // Salva o cronograma completo no Firebase de forma global
+                await setDoc(doc(db, "schedules", "global_shared_schedule"), {
                     rawText: text,
                     progress: progressMap // Mantém o progresso existente
                 }, { merge: true });
@@ -502,7 +502,601 @@ Junho / 2026
                     progressMap[id] = checked;
                     
                     try {
-                        await setDoc(doc(db, "schedules", currentUser.uid), {
+                        await setDoc(doc(db, "schedules", "global_shared_schedule"), {
+                            progress: progressMap
+                        }, { merge: true });
+                    } catch (err) {
+                        console.error("Erro ao salvar progresso:", err);
+                    }
+                });
+            });
+        }
+
+        btnPdf.addEventListener('click', () => {
+            if (scheduleItems.length === 0) {
+                alert("Nenhum dado carregado para gerar PDF.");
+                return;
+            }
+
+            const pdfRenderContent = document.getElementById('pdf-render-content');
+            pdfRenderContent.innerHTML = "";
+
+            const totalReadings = scheduleItems.filter(i => i.type === 'reading').length;
+            const totalCompleted = scheduleItems.filter(i => i.type === 'reading' && progressMap[i.id]).length;
+            const computedPct = totalReadings > 0 ? Math.round((totalCompleted / totalReadings) * 100) : 0;
+
+            document.getElementById('pdf-generation-date').textContent = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            document.getElementById('pdf-meta-progress').textContent = `Progresso: ${computedPct}%`;
+            document.getElementById('pdf-meta-counts').textContent = `(${totalCompleted} de ${totalReadings} Concluídos)`;
+
+            let monthBlockHTML = "";
+            
+            scheduleItems.forEach((item) => {
+                if (item.type === 'header') {
+                    if (monthBlockHTML) {
+                        pdfRenderContent.innerHTML += `<div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; margin-bottom: 20px;">${monthBlockHTML}</div>`;
+                        monthBlockHTML = "";
+                    }
+                    monthBlockHTML += `<h3 style="font-size: 14px; font-weight: bold; color: #92400e; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-top: 0; margin-bottom: 12px;">${item.text}</h3>`;
+                } else if (item.type === 'reading') {
+                    const status = calcItemStatus(item);
+                    let colorBg = "#f1f5f9";
+                    let colorBorder = "#cbd5e1";
+                    let colorText = "#334155";
+                    let badgeLabel = "Pendente";
+
+                    if (status === 'read') {
+                        colorBg = "#f0fdf4"; colorBorder = "#bbf7d0"; colorText = "#166534"; badgeLabel = "Concluído";
+                    } else if (status === 'today') {
+                        colorBg = "#fffbeb"; colorBorder = "#fde68a"; colorText = "#92400e"; badgeLabel = "Hoje";
+                    } else if (status === 'past') {
+                        colorBg = "#fef2f2"; colorBorder = "#fca5a5"; colorText = "#991b1b"; badgeLabel = "Atrasado";
+                    } else if (status === 'future') {
+                        colorBg = "#eff6ff"; colorBorder = "#bfdbfe"; colorText = "#1e40af"; badgeLabel = "Futuro";
+                    }
+
+                    monthBlockHTML += `
+                        <div style="background-color: ${colorBg}; border-left: 4px solid ${colorBorder}; padding: 8px 12px; margin-bottom: 6px; border-radius: 4px; display: table; width: 100%; box-sizing: border-box;">
+                            <div style="display: table-cell; font-size: 12px; color: ${colorText}; vertical-align: middle;">
+                                ${status === 'read' ? '✓ ' : '○ '} ${item.text}
+                            </div>
+                            <div style="display: table-cell; text-align: right; vertical-align: middle; width: 80px;">
+                                <span style="background-color: ${colorBorder}; color: ${colorText}; font-size: 9px; font-weight: bold; padding: 2px 6px; border-radius: 10px; text-transform: uppercase;">${badgeLabel}</span>
+                            </div>
+                        </div>`;
+                } else if (item.type === 'note') {
+                    monthBlockHTML += `
+                        <div style="background-color: #ffffff; border: 1px dashed #e2e8f0; padding: 6px 12px; margin-bottom: 6px; border-radius: 4px; font-size: 11px; color: #64748b;">
+                            ℹ ${item.text}
+                        </div>`;
+                }
+            });
+
+            if (monthBlockHTML) {
+                pdfRenderContent.innerHTML += `<div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; margin-bottom: 20px;">${monthBlockHTML}</div>`;
+            }
+
+            const opt = {
+                margin:       12,
+                filename:     'cronograma-leitura-biblica.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            const element = document.getElementById('pdf-export-template');
+            element.classList.remove('hidden');
+            html2pdf().from(element).set(opt).save().then(() => {
+                element.classList.add('hidden');
+            });
+        });
+    </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cronograma de Leitura Bíblica</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        /* Custom Checkbox Styling */
+        .custom-checkbox {
+            position: relative;
+            cursor: pointer;
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+        }
+        .custom-checkbox input {
+            position: absolute;
+            opacity: 0;
+            cursor: pointer;
+            height: 0;
+            width: 0;
+        }
+        .checkmark {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 24px;
+            width: 24px;
+            background-color: #e2e8f0;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+        .custom-checkbox:hover input ~ .checkmark {
+            background-color: #cbd5e1;
+        }
+        .custom-checkbox input:checked ~ .checkmark {
+            background-color: #10b981;
+        }
+        .checkmark:after {
+            content: "";
+            position: absolute;
+            display: none;
+        }
+        .custom-checkbox input:checked ~ .checkmark:after {
+            display: block;
+        }
+        .custom-checkbox .checkmark:after {
+            left: 9px;
+            top: 5px;
+            width: 6px;
+            height: 12px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    <div id="login-container" class="flex-grow flex items-center justify-center p-4">
+        <div class="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border border-slate-100">
+            <div class="w-16 h-16 bg-amber-100 text-amber-700 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner">
+                <i class="fa-solid fa-book-bible"></i>
+            </div>
+            <h1 class="text-2xl font-bold text-slate-900 mb-2">Cronograma Bíblico</h1>
+            <p class="text-slate-500 mb-6 text-sm">Organize suas leituras diárias, marque seu progresso e exporte relatórios personalizados.</p>
+            <button id="btn-login" class="w-full flex items-center justify-center gap-3 bg-white hover:bg-slate-50 text-slate-700 font-semibold py-3 px-4 border border-slate-300 rounded-xl shadow-sm transition duration-200">
+                <img src="https://docs.api.ai/images/logos/g-logo.png" alt="Google Logo" class="w-5 h-5">
+                Entrar com o Google
+            </button>
+        </div>
+    </div>
+
+    <div id="app-container" class="hidden flex-grow flex flex-col">
+        <header class="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+            <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <span class="text-amber-600 text-xl"><i class="fa-solid fa-book-bible"></i></span>
+                    <h1 class="text-lg font-bold text-slate-900 hidden sm:block">Meu Cronograma Bíblico</h1>
+                </div>
+                
+                <nav class="flex bg-slate-100 p-1 rounded-xl">
+                    <button id="tab-main-btn" class="px-4 py-2 rounded-lg text-sm font-medium transition duration-150 text-slate-700 bg-white shadow-sm" onclick="switchTab('main')">
+                        <i class="fa-solid fa-calendar-days mr-1.5"></i> Cronograma
+                    </button>
+                    <button id="tab-input-btn" class="px-4 py-2 rounded-lg text-sm font-medium transition duration-150 text-slate-500 hover:text-slate-800" onclick="switchTab('input')">
+                        <i class="fa-solid fa-pen-to-square mr-1.5"></i> Inserir Dados
+                    </button>
+                </nav>
+
+                <div class="flex items-center gap-3">
+                    <div class="text-right hidden md:block">
+                        <p id="user-name" class="text-sm font-semibold text-slate-800"></p>
+                        <p id="user-email" class="text-xs text-slate-400"></p>
+                    </div>
+                    <img id="user-photo" src="" alt="Avatar" class="w-9 h-9 rounded-full border border-slate-200">
+                    <button id="btn-logout" class="text-slate-400 hover:text-red-500 p-2 rounded-lg transition" title="Sair">
+                        <i class="fa-solid fa-right-from-bracket text-lg"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main class="flex-grow max-w-5xl w-full mx-auto p-4">
+            
+            <div id="tab-main" class="tab-content active space-y-6">
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                        <div>
+                            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Progresso Geral</span>
+                            <div class="flex items-baseline gap-2 mt-1">
+                                <span id="stats-percentage" class="text-3xl font-bold text-slate-900">0%</span>
+                                <span id="stats-counts" class="text-xs text-slate-500">(0 de 0 lidos)</span>
+                            </div>
+                        </div>
+                        <div class="w-full bg-slate-100 rounded-full h-2.5 mt-4">
+                            <div id="stats-progress-bar" class="bg-emerald-500 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <div id="today-summary-box" class="bg-amber-50 p-5 rounded-2xl border border-amber-200 shadow-sm md:col-span-2 flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-amber-700 uppercase tracking-wider flex items-center gap-1.5">
+                                    <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Leitura de Hoje
+                                </span>
+                                <span id="today-date-str" class="text-xs font-medium text-amber-600"></span>
+                            </div>
+                            <p id="today-reading-text" class="text-base font-semibold text-slate-900 mt-2">Nenhuma leitura agendada para hoje.</p>
+                        </div>
+                        <div class="mt-4 flex justify-between items-center">
+                            <span class="text-xs text-amber-700 italic">Mantenha a constância!</span>
+                            <button id="btn-pdf" class="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold py-2 px-4 rounded-xl shadow transition">
+                                <i class="fa-solid fa-file-pdf"></i> Exportar PDF Lindo
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap gap-4 items-center justify-center sm:justify-start bg-white p-3 rounded-xl border border-slate-200 text-xs text-slate-500">
+                    <span class="font-semibold text-slate-700">Legenda:</span>
+                    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-green-100 border border-green-400"></span> Concluído</span>
+                    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-amber-100 border border-amber-400"></span> Hoje</span>
+                    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-red-100 border border-red-400"></span> Atrasado</span>
+                    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-blue-100 border border-blue-400"></span> Futuro</span>
+                </div>
+
+                <div id="schedule-render-zone" class="space-y-8">
+                    <div class="text-center py-12 bg-white rounded-2xl border border-slate-200">
+                        <div class="text-slate-300 text-4xl mb-3"><i class="fa-solid fa-calendar-xmark"></i></div>
+                        <p class="text-slate-500 font-medium">Nenhum dado cadastrado.</p>
+                        <p class="text-xs text-slate-400 mt-1">Vá na aba "Inserir Dados" para colar seu cronograma.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-input" class="tab-content space-y-4">
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900">Configurar Cronograma de Texto</h2>
+                        <p class="text-slate-500 text-sm mt-0.5">Cole o texto completo do seu plano de leitura. O sistema processará as datas automaticamente.</p>
+                    </div>
+                    
+                    <div>
+                        <textarea id="raw-schedule-input" class="w-full min-h-[450px] p-4 font-mono text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition" placeholder="Exemplo:
+Junho / 2026
+09/06 (Terça - Hoje!): Gn 1 e 2 + Gn 3 - 5
+10/06 (Quarta): Gn 6 - 9
+..."></textarea>
+                    </div>
+
+                    <div class="flex justify-end">
+                        <button id="btn-save-schedule" class="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2.5 px-6 rounded-xl shadow transition">
+                            <i class="fa-solid fa-cloud-arrow-up"></i> Salvar e Atualizar Cronograma
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <div id="pdf-export-template" class="hidden">
+        <div style="font-family: 'Inter', sans-serif; padding: 30px; color: #1e293b; background-color: #ffffff;">
+            <div style="border-bottom: 2px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 25px; display: table; width: 100%;">
+                <div style="display: table-cell; vertical-align: middle;">
+                    <h1 style="font-size: 24px; font-weight: bold; color: #b45309; margin: 0;">Relatório de Acompanhamento Bíblico</h1>
+                    <p style="font-size: 12px; color: #64748b; margin: 4px 0 0 0;">Gerado automaticamente em <span id="pdf-generation-date"></span></p>
+                </div>
+                <div style="display: table-cell; text-align: right; vertical-align: middle;">
+                    <div id="pdf-meta-progress" style="font-size: 16px; font-weight: bold; color: #0f172a;">Progresso: 0%</div>
+                    <div id="pdf-meta-counts" style="font-size: 11px; color: #64748b;">(0 de 0 Concluídos)</div>
+                </div>
+            </div>
+            
+            <div id="pdf-render-content" style="display: block;">
+                </div>
+        </div>
+    </div>
+
+    <footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-400 mt-auto">
+        <p>&copy; 2026 Cronograma de Leitura Bíblica Integrado com Firebase</p>
+    </footer>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBgy4WC1xgggNr_BTs4o7dfQIeYw2n16Ms",
+            authDomain: "cronograma-fca31.firebaseapp.com",
+            projectId: "cronograma-fca31",
+            storageBucket: "cronograma-fca31.firebasestorage.app",
+            messagingSenderId: "821259339304",
+            appId: "1:821259339304:web:c569eab4130e70860d171d"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const provider = new GoogleAuthProvider();
+
+        let currentUser = null;
+        let scheduleItems = []; 
+        let progressMap = {};   
+
+        const loginContainer = document.getElementById('login-container');
+        const appContainer = document.getElementById('app-container');
+        const btnLogin = document.getElementById('btn-login');
+        const btnLogout = document.getElementById('btn-logout');
+        
+        const userName = document.getElementById('user-name');
+        const userEmail = document.getElementById('user-email');
+        const userPhoto = document.getElementById('user-photo');
+        
+        const rawScheduleInput = document.getElementById('raw-schedule-input');
+        const btnSaveSchedule = document.getElementById('btn-save-schedule');
+        const scheduleRenderZone = document.getElementById('schedule-render-zone');
+        const btnPdf = document.getElementById('btn-pdf');
+
+        window.switchTab = function(tabName) {
+            document.getElementById('tab-main').classList.toggle('active', tabName === 'main');
+            document.getElementById('tab-input').classList.toggle('active', tabName === 'input');
+            
+            const mainBtn = document.getElementById('tab-main-btn');
+            const inputBtn = document.getElementById('tab-input-btn');
+            
+            if (tabName === 'main') {
+                mainBtn.className = "px-4 py-2 rounded-lg text-sm font-medium transition duration-150 text-slate-700 bg-white shadow-sm";
+                inputBtn.className = "px-4 py-2 rounded-lg text-sm font-medium transition duration-150 text-slate-500 hover:text-slate-800";
+            } else {
+                inputBtn.className = "px-4 py-2 rounded-lg text-sm font-medium transition duration-150 text-slate-700 bg-white shadow-sm";
+                mainBtn.className = "px-4 py-2 rounded-lg text-sm font-medium transition duration-150 text-slate-500 hover:text-slate-800";
+            }
+        };
+
+        btnLogin.addEventListener('click', () => {
+            signInWithPopup(auth, provider).catch(error => console.error("Erro ao autenticar:", error));
+        });
+
+        btnLogout.addEventListener('click', () => {
+            signOut(auth).catch(error => console.error("Erro ao deslogar:", error));
+        });
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                userName.textContent = user.displayName;
+                userEmail.textContent = user.email;
+                userPhoto.src = user.photoURL || "https://www.gravatar.com/avatar/?d=mp";
+                
+                loginContainer.classList.add('hidden');
+                appContainer.classList.remove('hidden');
+                
+                listenToUserProgress();
+            } else {
+                currentUser = null;
+                loginContainer.classList.remove('hidden');
+                appContainer.classList.add('hidden');
+            }
+        });
+
+        function listenToUserProgress() {
+            const docRef = doc(db, "schedules", "global_shared_schedule");
+            onSnapshot(docRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    if(data.rawText) {
+                        rawScheduleInput.value = data.rawText;
+                        progressMap = data.progress || {};
+                        processAndRenderSchedule(data.rawText);
+                    } else {
+                        renderEmptyState();
+                    }
+                } else {
+                    renderEmptyState();
+                }
+            });
+        }
+
+        btnSaveSchedule.addEventListener('click', async () => {
+            if (!currentUser) return;
+            const text = rawScheduleInput.value;
+            try {
+                // Salva o cronograma completo no Firebase de forma global
+                await setDoc(doc(db, "schedules", "global_shared_schedule"), {
+                    rawText: text,
+                    progress: progressMap // Mantém o progresso existente
+                }, { merge: true });
+                alert("Cronograma salvo com sucesso!");
+                switchTab('main');
+            } catch (err) {
+                console.error("Erro ao salvar dados:", err);
+                alert("Erro ao salvar cronograma.");
+            }
+        });
+
+        function parseScheduleText(text) {
+            const lines = text.split('\n');
+            let currentYear = 2026;
+            let currentMonth = 5; 
+            const monthsMap = {
+                'janeiro': 0, 'fevereiro': 1, 'março': 2, 'abril': 3, 'maio': 4, 'junho': 5,
+                'julho': 6, 'agosto': 7, 'setembro': 8, 'outubro': 9, 'novembro': 10, 'dezembro': 11
+            };
+
+            const items = [];
+            lines.forEach((line, index) => {
+                const trimmed = line.trim();
+                if (!trimmed) return;
+
+                const monthMatch = trimmed.match(/(?:📅\s*)?([a-zA-ZçÇãõÁÉÍÓÚáéíóú]+)\s*\/\s*(\d{4})/i);
+                if (monthMatch) {
+                    const monthStr = monthMatch[1].toLowerCase();
+                    if (monthsMap[monthStr] !== undefined) {
+                        currentMonth = monthsMap[monthStr];
+                    }
+                    currentYear = parseInt(monthMatch[2], 10);
+                    items.push({ type: 'header', text: trimmed, index });
+                    return;
+                }
+
+                const dateMatches = trimmed.match(/\d{2}\/\d{2}/g);
+                if (dateMatches && dateMatches.length > 0 && !/fim de semana/i.test(trimmed)) {
+                    const datesParsed = dateMatches.map(dStr => {
+                        const [d, m] = dStr.split('/').map(n => parseInt(n, 10));
+                        return new Date(currentYear, m - 1, d);
+                    });
+
+                    const id = `item_${index}_${dateMatches[0].replace('/', '_')}`;
+                    items.push({
+                        type: 'reading',
+                        id: id,
+                        text: trimmed,
+                        dates: datesParsed,
+                        index: index
+                    });
+                } else {
+                    items.push({ type: 'note', text: trimmed, index });
+                }
+            });
+            return items;
+        }
+
+        function calcItemStatus(item) {
+            if (progressMap[item.id]) return 'read';
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            if (!item.dates || item.dates.length === 0) return 'neutral';
+
+            const targetsToday = item.dates.some(d => {
+                const checkDate = new Date(d);
+                checkDate.setHours(0,0,0,0);
+                return checkDate.getTime() === today.getTime();
+            });
+            if (targetsToday) return 'today';
+
+            const timestamps = item.dates.map(d => {
+                const checkDate = new Date(d);
+                checkDate.setHours(0,0,0,0);
+                return checkDate.getTime();
+            });
+            const maxTime = Math.max(...timestamps);
+            const minTime = Math.min(...timestamps);
+
+            if (maxTime < today.getTime()) {
+                return 'past'; 
+            } else if (minTime > today.getTime()) {
+                return 'future'; 
+            }
+            return 'neutral';
+        }
+
+        function renderEmptyState() {
+            scheduleRenderZone.innerHTML = `
+                <div class="text-center py-12 bg-white rounded-2xl border border-slate-200">
+                    <div class="text-slate-300 text-4xl mb-3"><i class="fa-solid fa-calendar-xmark"></i></div>
+                    <p class="text-slate-500 font-medium">Nenhum dado cadastrado.</p>
+                    <p class="text-xs text-slate-400 mt-1">Acesse a aba "Inserir Dados" para adicionar o texto do cronograma.</p>
+                </div>`;
+        }
+
+        function processAndRenderSchedule(text) {
+            scheduleItems = parseScheduleText(text);
+            scheduleRenderZone.innerHTML = "";
+            
+            let htmlBuffer = "";
+            let currentBlockHTML = "";
+            
+            let totalReadingsCount = 0;
+            let completedCount = 0;
+            let todayReadingTextContent = "Nenhuma leitura agendada para hoje.";
+
+            const todayDate = new Date();
+            document.getElementById('today-date-str').textContent = todayDate.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'short' });
+
+            scheduleItems.forEach((item) => {
+                if (item.type === 'header') {
+                    if (currentBlockHTML) {
+                        htmlBuffer += `<div class="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm space-y-3">${currentBlockHTML}</div>`;
+                        currentBlockHTML = "";
+                    }
+                    currentBlockHTML += `<h3 class="text-base font-bold text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-2 text-amber-700 font-semibold"><i class="fa-solid fa-bookmark text-xs"></i> ${item.text}</h3>`;
+                } else if (item.type === 'reading') {
+                    totalReadingsCount++;
+                    const status = calcItemStatus(item);
+                    
+                    let cardClasses = "";
+                    let badgeHTML = "";
+                    let isChecked = false;
+
+                    if (status === 'read') {
+                        completedCount++;
+                        isChecked = true;
+                        cardClasses = "bg-green-50 border-l-4 border-green-500 text-green-900";
+                        badgeHTML = `<span class="bg-green-100 text-green-800 text-[10px] font-bold px-2 py-0.5 rounded-full"><i class="fa-solid fa-circle-check"></i> Lido</span>`;
+                    } else if (status === 'today') {
+                        cardClasses = "bg-amber-50 border-2 border-amber-500 shadow-sm font-medium text-slate-900 ring-2 ring-amber-100";
+                        badgeHTML = `<span class="bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">Hoje</span>`;
+                        todayReadingTextContent = item.text;
+                    } else if (status === 'past') {
+                        cardClasses = "bg-red-50 border-l-4 border-red-500 text-red-900";
+                        badgeHTML = `<span class="bg-red-100 text-red-800 text-[10px] font-bold px-2 py-0.5 rounded-full">Atrasado</span>`;
+                    } else if (status === 'future') {
+                        cardClasses = "bg-blue-50 border-l-4 border-blue-500 text-blue-900";
+                        badgeHTML = `<span class="bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded-full">Futuro</span>`;
+                    }
+
+                    currentBlockHTML += `
+                        <div class="flex items-center justify-between p-3 rounded-xl border border-slate-100 ${cardClasses} transition hover:shadow-sm">
+                            <div class="flex items-center gap-4 flex-grow mr-2">
+                                <label class="custom-checkbox flex-shrink-0">
+                                    <input type="checkbox" data-id="${item.id}" ${isChecked ? 'checked' : ''} class="reading-toggle">
+                                    <span class="checkmark shadow-sm"></span>
+                                </label>
+                                <span class="text-sm select-none break-words leading-relaxed">${item.text}</span>
+                            </div>
+                            <div class="flex-shrink-0">
+                                ${badgeHTML}
+                            </div>
+                        </div>`;
+                } else if (item.type === 'note') {
+                    currentBlockHTML += `
+                        <div class="p-3 bg-slate-50 rounded-xl text-xs text-slate-500 border border-dashed border-slate-200 flex items-center gap-2">
+                            <span class="text-slate-400"><i class="fa-solid fa-circle-info"></i></span>
+                            <span>${item.text}</span>
+                        </div>`;
+                }
+            });
+
+            if (currentBlockHTML) {
+                htmlBuffer += `<div class="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm space-y-3">${currentBlockHTML}</div>`;
+            }
+
+            scheduleRenderZone.innerHTML = htmlBuffer || `<p class='text-slate-400 text-center py-6'>Nenhum item válido encontrado.</p>`;
+            document.getElementById('today-reading-text').textContent = todayReadingTextContent;
+
+            const pct = totalReadingsCount > 0 ? Math.round((completedCount / totalReadingsCount) * 100) : 0;
+            document.getElementById('stats-percentage').textContent = `${pct}%`;
+            document.getElementById('stats-counts').textContent = `(${completedCount} de ${totalReadingsCount} lidos)`;
+            document.getElementById('stats-progress-bar').style.width = `${pct}%`;
+
+            document.querySelectorAll('.reading-toggle').forEach(chk => {
+                chk.addEventListener('change', async (e) => {
+                    if (!currentUser) return;
+                    const id = e.target.getAttribute('data-id');
+                    const checked = e.target.checked;
+                    progressMap[id] = checked;
+                    
+                    try {
+                        await setDoc(doc(db, "schedules", "global_shared_schedule"), {
                             progress: progressMap
                         }, { merge: true });
                     } catch (err) {
