@@ -59,7 +59,7 @@
             top: 5px;
             width: 6px;
             height: 12px;
-            border: solid white;
+            border: white;
             border-width: 0 2px 2px 0;
             transform: rotate(45deg);
         }
@@ -152,18 +152,10 @@
                         </div>
                         <div class="mt-4 flex justify-between items-center gap-2">
                             <button id="btn-pdf" class="w-full inline-flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold py-2 px-3 rounded-xl shadow transition">
-                                <i class="fa-solid fa-file-pdf"></i> Exportar PDF Lindo
+                                <i class="fa-solid fa-file-pdf"></i> Exportar PDF
                             </button>
                         </div>
                     </div>
-                </div>
-
-                <div class="flex flex-wrap gap-4 items-center justify-center sm:justify-start bg-white p-3 rounded-xl border border-slate-200 text-xs text-slate-500">
-                    <span class="font-semibold text-slate-700">Legenda:</span>
-                    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-green-100 border border-green-400"></span> Concluído</span>
-                    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-amber-100 border border-amber-400"></span> Hoje</span>
-                    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-red-100 border border-red-400"></span> Atrasado</span>
-                    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-blue-100 border border-blue-400"></span> Futuro</span>
                 </div>
 
                 <div id="schedule-render-zone" class="space-y-8">
@@ -179,15 +171,11 @@
                 <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
                     <div>
                         <h2 class="text-lg font-bold text-slate-900">Configurar Cronograma de Texto</h2>
-                        <p class="text-slate-500 text-sm mt-0.5">Cole o texto completo do seu plano de leitura. O sistema processará as datas automaticamente.</p>
+                        <p class="text-slate-500 text-sm mt-0.5">Cole o texto completo do seu plano de leitura.</p>
                     </div>
                     
                     <div>
-                        <textarea id="raw-schedule-input" class="w-full min-h-[450px] p-4 font-mono text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition" placeholder="Exemplo:
-Junho / 2026
-09/06 (Terça - Hoje!): Gn 1 e 2 + Gn 3 - 5
-10/06 (Quarta): Gn 6 - 9
-..."></textarea>
+                        <textarea id="raw-schedule-input" class="w-full min-h-[450px] p-4 font-mono text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition" placeholder="Cole aqui seu cronograma..."></textarea>
                     </div>
 
                     <div class="flex justify-end">
@@ -203,32 +191,15 @@ Junho / 2026
 
     <div id="pdf-export-template" class="hidden">
         <div style="font-family: 'Inter', sans-serif; padding: 30px; color: #1e293b; background-color: #ffffff;">
-            <div style="border-bottom: 2px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 25px; display: table; width: 100%;">
-                <div style="display: table-cell; vertical-align: middle;">
-                    <h1 style="font-size: 24px; font-weight: bold; color: #b45309; margin: 0;">Relatório de Acompanhamento Bíblico</h1>
-                    <p style="font-size: 12px; color: #64748b; margin: 4px 0 0 0;">Gerado automaticamente em <span id="pdf-generation-date"></span></p>
-                </div>
-                <div style="display: table-cell; text-align: right; vertical-align: middle;">
-                    <div id="pdf-meta-progress" style="font-size: 16px; font-weight: bold; color: #0f172a;">Progresso: 0%</div>
-                    <div id="pdf-meta-counts" style="font-size: 11px; color: #64748b;">(0 de 0 Concluídos)</div>
-                </div>
-            </div>
-            
-            <div id="pdf-render-content" style="display: block;">
-                </div>
+            <div id="pdf-render-content" style="display: block;"></div>
         </div>
     </div>
-
-    <footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-400 mt-auto">
-        <p>&copy; 2026 Cronograma de Leitura Bíblica Integrado com Firebase</p>
-    </footer>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
 
-        // Your web app's Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyBgy4WC1xgggNr_BTs4o7dfQIeYw2n16Ms",
             authDomain: "cronograma-fca31.firebaseapp.com",
@@ -238,177 +209,85 @@ Junho / 2026
             appId: "1:821259339304:web:c569eab4130e70860d171d"
         };
 
-        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
         const provider = new GoogleAuthProvider();
 
-        // State variables
         let currentUser = null;
-        let userScheduleDoc = null;
-        let scheduleItems = []; // List of processed items
-        let progressMap = {};   // { itemId: boolean }
+        let scheduleItems = [];
+        let progressMap = {};
 
-        // DOM Elements
         const loginContainer = document.getElementById('login-container');
         const appContainer = document.getElementById('app-container');
         const btnLogin = document.getElementById('btn-login');
         const btnLogout = document.getElementById('btn-logout');
-        
-        const userName = document.getElementById('user-name');
-        const userEmail = document.getElementById('user-email');
-        const userPhoto = document.getElementById('user-photo');
-        
         const rawScheduleInput = document.getElementById('raw-schedule-input');
         const btnSaveSchedule = document.getElementById('btn-save-schedule');
         const scheduleRenderZone = document.getElementById('schedule-render-zone');
         const btnPdf = document.getElementById('btn-pdf');
 
-        // Dynamic Global Helper to change tabs
         window.switchTab = function(tabName) {
             document.getElementById('tab-main').classList.toggle('active', tabName === 'main');
             document.getElementById('tab-input').classList.toggle('active', tabName === 'input');
-            
-            const mainBtn = document.getElementById('tab-main-btn');
-            const inputBtn = document.getElementById('tab-input-btn');
-            
-            if (tabName === 'main') {
-                mainBtn.className = "px-4 py-2 rounded-lg text-sm font-medium transition duration-150 text-slate-700 bg-white shadow-sm";
-                inputBtn.className = "px-4 py-2 rounded-lg text-sm font-medium transition duration-150 text-slate-500 hover:text-slate-800";
-            } else {
-                inputBtn.className = "px-4 py-2 rounded-lg text-sm font-medium transition duration-150 text-slate-700 bg-white shadow-sm";
-                mainBtn.className = "px-4 py-2 rounded-lg text-sm font-medium transition duration-150 text-slate-500 hover:text-slate-800";
-            }
         };
 
-        // Auth handling
-        btnLogin.addEventListener('click', () => {
-            signInWithPopup(auth, provider).catch(error => console.error("Erro ao autenticar:", error));
-        });
-
-        btnLogout.addEventListener('click', () => {
-            signOut(auth).catch(error => console.error("Erro ao deslogar:", error));
-        });
+        btnLogin.addEventListener('click', () => signInWithPopup(auth, provider));
+        btnLogout.addEventListener('click', () => signOut(auth));
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 currentUser = user;
-                userName.textContent = user.displayName;
-                userEmail.textContent = user.email;
-                userPhoto.src = user.photoURL || "https://www.gravatar.com/avatar/?d=mp";
-                
+                document.getElementById('user-name').textContent = user.displayName;
+                document.getElementById('user-email').textContent = user.email;
+                document.getElementById('user-photo').src = user.photoURL || "";
                 loginContainer.classList.add('hidden');
                 appContainer.classList.remove('hidden');
-                
-                // Realtime listen to user data inside Firestore
                 listenToUserProgress(user.uid);
-                // Realtime listen to global user leaderboard data for the dispute
                 listenToCompetition();
             } else {
-                currentUser = null;
                 loginContainer.classList.remove('hidden');
                 appContainer.classList.add('hidden');
             }
         });
 
-        // Firestore real-time synchronize function
         function listenToUserProgress(uid) {
             const docRef = doc(db, "schedules", uid);
             onSnapshot(docRef, async (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
-                    rawScheduleInput.value = data.rawText || "";
                     progressMap = data.progress || {};
-                    if (data.rawText) {
-                        processAndRenderSchedule(data.rawText);
-                        
-                        // Sync percentage metric into Firestore to populate leaderboard smoothly
-                        const totalReadings = scheduleItems.filter(i => i.type === 'reading').length;
-                        const completed = scheduleItems.filter(i => i.type === 'reading' && progressMap[i.id]).length;
-                        const currentPct = totalReadings > 0 ? Math.round((completed / totalReadings) * 100) : 0;
-                        
-                        if (data.percentage !== currentPct || data.userName !== currentUser.displayName) {
-                            setDoc(docRef, {
-                                percentage: currentPct,
-                                userName: currentUser.displayName || "Usuário",
-                                userPhoto: currentUser.photoURL || ""
-                            }, { merge: true }).catch(err => console.error(err));
-                        }
-                    } else {
-                        renderEmptyState();
+                    // Apenas atualiza o textarea se ele estiver vazio, para não sobrescrever o que o usuário digita
+                    if (!rawScheduleInput.value) {
+                        rawScheduleInput.value = data.rawText || "";
                     }
+                    if (data.rawText) processAndRenderSchedule(data.rawText);
                 } else {
-                    // Injecting Default Template data if completely blank
-                    const defaultText = `Junho / 2026\n09/06 (Terça - Hoje!): Gn 1 e 2 + Gn 3 - 5\n10/06 (Quarta): Gn 6 - 9\n11/06 (Quinta): Gn 10 e 11 + Gn 12 - 15\n12/06 (Sexta): Gn 16 - 19\n🛑 13/06 e 14/06: Fim de semana (Descanso)\n15/06 (Segunda): Gn 20 - 22\n16/06 (Terça): Gn 23 - 26 + Gn 27 - 29\n17/06 (Quarta): Gn 30 - 32\n18/06 (Quinta): Gn 33 - 36 + Gn 37 - 39\n19/06 (Sexta): Gn 40 - 42\n🛑 20/06 e 21/06: Fim de semana (Descanso)\n22/06 (Segunda): Gn 43 - 46\n23/06 (Terça): Gn 47 - 50 + Jó 1 - 4\n24/06 (Quarta): Jó 5 - 7\n25/06 (Quinta): Jó 8 - 10 + Jó 11 - 13\n26/06 (Sexta): Jó 14 - 17\n🛑 27/06 e 28/06: Fim de semana (Descanso)\n29/06 (Segunda): Jó 18 - 20\n30/06 (Terça): Jó 21 - 24 + Jó 25 - 27\n📅 Julho / 2026\n01/07 (Quarta): Jó 28 - 31\n02/07 (Quinta): Jó 32 - 34 + Jó 35 - 37\n03/07 (Sexta): Jó 38 - 42\n🛑 04/07 e 05/07: Fim de semana\n06/07 (Segunda): Êx 1 - 4\n07/07 (Terça): Êx 5 - 7 + Êx 8 - 10\n08/07 (Quarta): Êx 11 - 13\n09/07 (Quinta): Êx 14 - 17 + Êx 18 - 20\n10/07 (Sexta): Êx 21 - 24.`.replace(/\n/g, '\n');
-                    rawScheduleInput.value = defaultText;
-                    try {
-                        await setDoc(docRef, {
-                            rawText: defaultText,
-                            percentage: 0,
-                            progress: {},
-                            userName: currentUser.displayName || "Usuário",
-                            userPhoto: currentUser.photoURL || ""
-                        }, { merge: true });
-                    } catch(e) {
-                        console.error(e);
-                    }
                     renderEmptyState();
                 }
             });
         }
 
-        // Listen to everyone's score for real-time race scoreboard updates
         function listenToCompetition() {
             onSnapshot(collection(db, "schedules"), (querySnapshot) => {
                 const leaderboardZone = document.getElementById('leaderboard-zone');
-                if (!leaderboardZone) return;
-
                 let usersProgress = [];
                 querySnapshot.forEach((doc) => {
                     const data = doc.data();
-                    if (data.userName && data.percentage !== undefined) {
-                        usersProgress.push({
-                            name: data.userName,
-                            photo: data.userPhoto || "https://www.gravatar.com/avatar/?d=mp",
-                            percentage: data.percentage,
-                            uid: doc.id
-                        });
-                    }
+                    if (data.userName !== undefined) usersProgress.push({ name: data.userName, photo: data.userPhoto, percentage: data.percentage || 0, uid: doc.id });
                 });
-
                 usersProgress.sort((a, b) => b.percentage - a.percentage);
-
                 let html = "";
                 usersProgress.forEach((u, idx) => {
-                    const isMe = currentUser && u.uid === currentUser.uid;
-                    let medal = "🏃";
-                    if (idx === 0) medal = "🥇";
-                    if (idx === 1) medal = "🥈";
-                    
-                    html += `
-                        <div class="flex items-center justify-between p-2 rounded-xl border ${isMe ? 'bg-amber-50 border-amber-300' : 'bg-slate-50 border-slate-100'}">
-                            <div class="flex items-center gap-2 overflow-hidden">
-                                <span class="text-xs font-bold text-slate-400">${idx + 1}°</span>
-                                <img src="${u.photo}" class="w-6 h-6 rounded-full border border-slate-200 flex-shrink-0">
-                                <span class="text-xs font-semibold text-slate-700 truncate">${u.name.split(' ')[0]}</span>
-                            </div>
-                            <div class="flex items-center gap-1 flex-shrink-0">
-                                <span class="text-xs font-bold text-slate-900">${u.percentage}%</span>
-                                <span class="text-xs">${medal}</span>
-                            </div>
-                        </div>
-                    `;
+                    html += `<div class="flex items-center justify-between p-2 rounded-xl border bg-slate-50 border-slate-100">
+                        <div class="flex items-center gap-2"><img src="${u.photo}" class="w-6 h-6 rounded-full"><span class="text-xs font-semibold truncate">${u.name.split(' ')[0]}</span></div>
+                        <span class="text-xs font-bold">${u.percentage}%</span>
+                    </div>`;
                 });
-
-                if (usersProgress.length === 0) {
-                    html = `<p class="text-xs text-slate-400 py-2">Nenhum competidor cadastrado.</p>`;
-                }
-                leaderboardZone.innerHTML = html;
+                leaderboardZone.innerHTML = html || `<p class="text-xs text-slate-400">Sem competidores.</p>`;
             });
         }
 
-        // Save Raw Schedule Data
         btnSaveSchedule.addEventListener('click', async () => {
             if (!currentUser) return;
             const text = rawScheduleInput.value;
@@ -417,65 +296,28 @@ Junho / 2026
             const completed = parsedItems.filter(i => i.type === 'reading' && progressMap[i.id]).length;
             const currentPct = totalReadings > 0 ? Math.round((completed / totalReadings) * 100) : 0;
 
-            try {
-                await setDoc(doc(db, "schedules", currentUser.uid), {
-                    rawText: text,
-                    percentage: currentPct,
-                    userName: currentUser.displayName || "Usuário",
-                    userPhoto: currentUser.photoURL || ""
-                }, { merge: true });
-                alert("Cronograma updated com sucesso!");
-                switchTab('main');
-            } catch (err) {
-                console.error("Erro ao salvar dados:", err);
-                alert("Erro ao salvar cronograma.");
-            }
+            await setDoc(doc(db, "schedules", currentUser.uid), {
+                rawText: text,
+                percentage: currentPct,
+                userName: currentUser.displayName,
+                userPhoto: currentUser.photoURL,
+                progress: progressMap
+            }, { merge: true });
+            alert("Cronograma salvo com sucesso!");
+            switchTab('main');
         });
 
-        // Parse schedule text line-by-line
         function parseScheduleText(text) {
             const lines = text.split('\n');
-            let currentYear = 2026;
-            let currentMonth = 5; // Default June
-            const monthsMap = {
-                'janeiro': 0, 'fevereiro': 1, 'março': 2, 'abril': 3, 'maio': 4, 'junho': 5,
-                'julho': 6, 'agosto': 7, 'setembro': 8, 'outubro': 9, 'novembro': 10, 'dezembro': 11
-            };
-
             const items = [];
             lines.forEach((line, index) => {
                 const trimmed = line.trim();
                 if (!trimmed) return;
-
-                // Test for Month Indicator
                 const monthMatch = trimmed.match(/(?:📅\s*)?([a-zA-ZçÇãõÁÉÍÓÚáéíóú]+)\s*\/\s*(\d{4})/i);
                 if (monthMatch) {
-                    const monthStr = monthMatch[1].toLowerCase();
-                    if (monthsMap[monthStr] !== undefined) {
-                        currentMonth = monthsMap[monthStr];
-                    }
-                    currentYear = parseInt(monthMatch[2], 10);
                     items.push({ type: 'header', text: trimmed, index });
-                    return;
-                }
-
-                // Check for dates DD/MM (Excludes weekends from being processed as readings)
-                const dateMatches = trimmed.match(/\d{2}\/\d{2}/g);
-                if (dateMatches && dateMatches.length > 0 && !/fim de semana/i.test(trimmed)) {
-                    const datesParsed = dateMatches.map(dStr => {
-                        const [d, m] = dStr.split('/').map(n => parseInt(n, 10));
-                        return new Date(currentYear, m - 1, d);
-                    });
-
-                    // Unique ID based on index + first parsed date
-                    const id = `item_${index}_${dateMatches[0].replace('/', '_')}`;
-                    items.push({
-                        type: 'reading',
-                        id: id,
-                        text: trimmed,
-                        dates: datesParsed,
-                        index: index
-                    });
+                } else if (/\d{2}\/\d{2}/.test(trimmed)) {
+                    items.push({ type: 'reading', id: `item_${index}`, text: trimmed, index });
                 } else {
                     items.push({ type: 'note', text: trimmed, index });
                 }
@@ -483,238 +325,54 @@ Junho / 2026
             return items;
         }
 
-        // Determine item logic color state
-        function calcItemStatus(item) {
-            if (progressMap[item.id]) return 'read';
-
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-
-            if (!item.dates || item.dates.length === 0) return 'neutral';
-
-            // Check if today matches any date explicitly
-            const targetsToday = item.dates.some(d => {
-                const checkDate = new Date(d);
-                checkDate.setHours(0,0,0,0);
-                return checkDate.getTime() === today.getTime();
-            });
-            if (targetsToday) return 'today';
-
-            // Min/Max dates comparison
-            const timestamps = item.dates.map(d => {
-                const checkDate = new Date(d);
-                checkDate.setHours(0,0,0,0);
-                return checkDate.getTime();
-            });
-            const maxTime = Math.max(...timestamps);
-            const minTime = Math.min(...timestamps);
-
-            if (maxTime < today.getTime()) {
-                return 'past'; // Red - Late
-            } else if (minTime > today.getTime()) {
-                return 'future'; // Blue - Future
-            }
-            return 'neutral';
-        }
-
-        function renderEmptyState() {
-            scheduleRenderZone.innerHTML = `
-                <div class="text-center py-12 bg-white rounded-2xl border border-slate-200">
-                    <div class="text-slate-300 text-4xl mb-3"><i class="fa-solid fa-calendar-xmark"></i></div>
-                    <p class="text-slate-500 font-medium">Nenhum dado cadastrado.</p>
-                    <p class="text-xs text-slate-400 mt-1">Acesse a aba "Inserir Dados" para adicionar o texto do cronograma.</p>
-                </div>`;
-        }
-
-        // Core compilation of logic, styles, cards and metrics
         function processAndRenderSchedule(text) {
             scheduleItems = parseScheduleText(text);
             scheduleRenderZone.innerHTML = "";
-            
             let htmlBuffer = "";
             let currentBlockHTML = "";
-            
             let totalReadingsCount = 0;
             let completedCount = 0;
-            let todayReadingTextContent = "Nenhuma leitura agendada para hoje.";
-
-            const todayDate = new Date();
-            document.getElementById('today-date-str').textContent = todayDate.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'short' });
 
             scheduleItems.forEach((item) => {
                 if (item.type === 'header') {
-                    if (currentBlockHTML) {
-                        htmlBuffer += `<div class="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm space-y-3">${currentBlockHTML}</div>`;
-                        currentBlockHTML = "";
-                    }
-                    currentBlockHTML += `<h3 class="text-base font-bold text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-2 text-amber-700 font-semibold"><i class="fa-solid fa-bookmark text-xs"></i> ${item.text}</h3>`;
+                    if (currentBlockHTML) htmlBuffer += `<div class="bg-white p-6 rounded-2xl border border-slate-200 space-y-3">${currentBlockHTML}</div>`;
+                    currentBlockHTML = `<h3 class="text-amber-700 font-bold border-b pb-2">${item.text}</h3>`;
                 } else if (item.type === 'reading') {
                     totalReadingsCount++;
-                    const status = calcItemStatus(item);
-                    
-                    let cardClasses = "";
-                    let badgeHTML = "";
-                    let isChecked = false;
-
-                    if (status === 'read') {
-                        completedCount++;
-                        isChecked = true;
-                        cardClasses = "bg-green-50 border-l-4 border-green-500 text-green-900";
-                        badgeHTML = `<span class="bg-green-100 text-green-800 text-[10px] font-bold px-2 py-0.5 rounded-full"><i class="fa-solid fa-circle-check"></i> Lido</span>`;
-                    } else if (status === 'today') {
-                        cardClasses = "bg-amber-50 border-2 border-amber-500 shadow-sm font-medium text-slate-900 ring-2 ring-amber-100";
-                        badgeHTML = `<span class="bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">Hoje</span>`;
-                        todayReadingTextContent = item.text;
-                    } else if (status === 'past') {
-                        cardClasses = "bg-red-50 border-l-4 border-red-500 text-red-900";
-                        badgeHTML = `<span class="bg-red-100 text-red-800 text-[10px] font-bold px-2 py-0.5 rounded-full">Atrasado</span>`;
-                    } else if (status === 'future') {
-                        cardClasses = "bg-blue-50 border-l-4 border-blue-500 text-blue-900";
-                        badgeHTML = `<span class="bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded-full">Futuro</span>`;
-                    }
-
-                    currentBlockHTML += `
-                        <div class="flex items-center justify-between p-3 rounded-xl border border-slate-100 ${cardClasses} transition hover:shadow-sm">
-                            <div class="flex items-center gap-4 flex-grow mr-2">
-                                <label class="custom-checkbox flex-shrink-0">
-                                    <input type="checkbox" data-id="${item.id}" ${isChecked ? 'checked' : ''} class="reading-toggle">
-                                    <span class="checkmark shadow-sm"></span>
-                                </label>
-                                <span class="text-sm select-none break-words leading-relaxed">${item.text}</span>
-                            </div>
-                            <div class="flex-shrink-0">
-                                ${badgeHTML}
-                            </div>
-                        </div>`;
-                } else if (item.type === 'note') {
-                    // Regular rest lines/notes
-                    currentBlockHTML += `
-                        <div class="p-3 bg-slate-50 rounded-xl text-xs text-slate-500 border border-dashed border-slate-200 flex items-center gap-2">
-                            <span class="text-slate-400"><i class="fa-solid fa-circle-info"></i></span>
-                            <span>${item.text}</span>
-                        </div>`;
+                    const isChecked = progressMap[item.id];
+                    if (isChecked) completedCount++;
+                    currentBlockHTML += `<div class="flex items-center gap-3 p-3 rounded-xl border ${isChecked ? 'bg-green-50' : 'bg-slate-50'}">
+                        <input type="checkbox" class="reading-toggle" data-id="${item.id}" ${isChecked ? 'checked' : ''}>
+                        <span class="text-sm">${item.text}</span>
+                    </div>`;
+                } else {
+                    currentBlockHTML += `<p class="text-xs text-slate-400 italic">${item.text}</p>`;
                 }
             });
-
-            if (currentBlockHTML) {
-                htmlBuffer += `<div class="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm space-y-3">${currentBlockHTML}</div>`;
-            }
-
-            scheduleRenderZone.innerHTML = htmlBuffer || `<p class='text-slate-400 text-center py-6'>Nenhum item válido encontrado.</p>`;
-            document.getElementById('today-reading-text').textContent = todayReadingTextContent;
-
-            // Compute statistics numbers
+            if (currentBlockHTML) htmlBuffer += `<div class="bg-white p-6 rounded-2xl border border-slate-200 space-y-3">${currentBlockHTML}</div>`;
+            scheduleRenderZone.innerHTML = htmlBuffer;
+            
             const pct = totalReadingsCount > 0 ? Math.round((completedCount / totalReadingsCount) * 100) : 0;
             document.getElementById('stats-percentage').textContent = `${pct}%`;
-            document.getElementById('stats-counts').textContent = `(${completedCount} de ${totalReadingsCount} lidos)`;
             document.getElementById('stats-progress-bar').style.width = `${pct}%`;
 
-            // Bind Event Listeners on Checkboxes dynamically generated
             document.querySelectorAll('.reading-toggle').forEach(chk => {
                 chk.addEventListener('change', async (e) => {
-                    if (!currentUser) return;
-                    const id = e.target.getAttribute('data-id');
-                    const checked = e.target.checked;
-                    
-                    progressMap[id] = checked;
-                    
-                    const totalReadings = scheduleItems.filter(i => i.type === 'reading').length;
-                    const completed = scheduleItems.filter(i => i.type === 'reading' && progressMap[i.id]).length;
-                    const currentPct = totalReadings > 0 ? Math.round((completed / totalReadings) * 100) : 0;
-
-                    try {
-                        await setDoc(doc(db, "schedules", currentUser.uid), {
-                            progress: progressMap,
-                            percentage: currentPct,
-                            userName: currentUser.displayName || "Usuário",
-                            userPhoto: currentUser.photoURL || ""
-                        }, { merge: true });
-                    } catch (err) {
-                        console.error("Erro ao salvar progresso:", err);
-                    }
+                    progressMap[e.target.getAttribute('data-id')] = e.target.checked;
+                    // Atualiza o progresso no Firebase
+                    const completed = Object.values(progressMap).filter(v => v).length;
+                    const total = scheduleItems.filter(i => i.type === 'reading').length;
+                    await setDoc(doc(db, "schedules", currentUser.uid), {
+                        percentage: Math.round((completed / total) * 100),
+                        progress: progressMap
+                    }, { merge: true });
                 });
             });
         }
 
-        // BEAUTIFUL PDF GENERATION LOGIC
-        btnPdf.addEventListener('click', () => {
-            if (scheduleItems.length === 0) {
-                alert("Nenhum dado carregado para gerar PDF.");
-                return;
-            }
-
-            const pdfRenderContent = document.getElementById('pdf-render-content');
-            pdfRenderContent.innerHTML = "";
-
-            const totalReadings = scheduleItems.filter(i => i.type === 'reading').length;
-            const totalCompleted = scheduleItems.filter(i => i.type === 'reading' && progressMap[i.id]).length;
-            const computedPct = totalReadings > 0 ? Math.round((totalCompleted / totalReadings) * 100) : 0;
-
-            document.getElementById('pdf-generation-date').textContent = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-            document.getElementById('pdf-meta-progress').textContent = `Progresso: ${computedPct}%`;
-            document.getElementById('pdf-meta-counts').textContent = `(${totalCompleted} de ${totalReadings} Concluídos)`;
-
-            let monthBlockHTML = "";
-            
-            scheduleItems.forEach((item) => {
-                if (item.type === 'header') {
-                    if (monthBlockHTML) {
-                        pdfRenderContent.innerHTML += `<div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; margin-bottom: 20px;">${monthBlockHTML}</div>`;
-                        monthBlockHTML = "";
-                    }
-                    monthBlockHTML += `<h3 style="font-size: 14px; font-weight: bold; color: #92400e; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-top: 0; margin-bottom: 12px;">${item.text}</h3>`;
-                } else if (item.type === 'reading') {
-                    const status = calcItemStatus(item);
-                    let colorBg = "#f1f5f9";
-                    let colorBorder = "#cbd5e1";
-                    let colorText = "#334155";
-                    let badgeLabel = "Pendente";
-
-                    if (status === 'read') {
-                        colorBg = "#f0fdf4"; colorBorder = "#bbf7d0"; colorText = "#166534"; badgeLabel = "Concluído";
-                    } else if (status === 'today') {
-                        colorBg = "#fffbeb"; colorBorder = "#fde68a"; colorText = "#92400e"; badgeLabel = "Hoje";
-                    } else if (status === 'past') {
-                        colorBg = "#fef2f2"; colorBorder = "#fca5a5"; colorText = "#991b1b"; badgeLabel = "Atrasado";
-                    } else if (status === 'future') {
-                        colorBg = "#eff6ff"; colorBorder = "#bfdbfe"; colorText = "#1e40af"; badgeLabel = "Futuro";
-                    }
-
-                    monthBlockHTML += `
-                        <div style="background-color: ${colorBg}; border-left: 4px solid ${colorBorder}; padding: 8px 12px; margin-bottom: 6px; border-radius: 4px; display: table; width: 100%; box-sizing: border-box;">
-                            <div style="display: table-cell; font-size: 12px; color: ${colorText}; vertical-align: middle;">
-                                ${status === 'read' ? '✓ ' : '○ '} ${item.text}
-                            </div>
-                            <div style="display: table-cell; text-align: right; vertical-align: middle; width: 80px;">
-                                <span style="background-color: ${colorBorder}; color: ${colorText}; font-size: 9px; font-weight: bold; padding: 2px 6px; border-radius: 10px; text-transform: uppercase;">${badgeLabel}</span>
-                            </div>
-                        </div>`;
-                } else if (item.type === 'note') {
-                    monthBlockHTML += `
-                        <div style="background-color: #ffffff; border: 1px dashed #e2e8f0; padding: 6px 12px; margin-bottom: 6px; border-radius: 4px; font-size: 11px; color: #64748b;">
-                            ℹ ${item.text}
-                        </div>`;
-                }
-            });
-
-            if (monthBlockHTML) {
-                pdfRenderContent.innerHTML += `<div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; margin-bottom: 20px;">${monthBlockHTML}</div>`;
-            }
-
-            const opt = {
-                margin:       12,
-                filename:     'cronograma-leitura-biblica.pdf',
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true },
-                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            };
-
-            const element = document.getElementById('pdf-export-template');
-            element.classList.remove('hidden');
-            html2pdf().from(element).set(opt).save().then(() => {
-                element.classList.add('hidden');
-            });
-        });
+        function renderEmptyState() {
+            scheduleRenderZone.innerHTML = `<div class="text-center py-12">Nenhum dado cadastrado.</div>`;
+        }
     </script>
 </body>
 </html>
