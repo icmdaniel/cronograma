@@ -218,7 +218,6 @@ Junho / 2026
         import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
 
-        // Your web app's Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyBgy4WC1xgggNr_BTs4o7dfQIeYw2n16Ms",
             authDomain: "cronograma-fca31.firebaseapp.com",
@@ -228,19 +227,15 @@ Junho / 2026
             appId: "1:821259339304:web:c569eab4130e70860d171d"
         };
 
-        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
         const provider = new GoogleAuthProvider();
 
-        // State variables
         let currentUser = null;
-        let userScheduleDoc = null;
-        let scheduleItems = []; // List of processed items
-        let progressMap = {};   // { itemId: boolean }
+        let scheduleItems = []; 
+        let progressMap = {};   
 
-        // DOM Elements
         const loginContainer = document.getElementById('login-container');
         const appContainer = document.getElementById('app-container');
         const btnLogin = document.getElementById('btn-login');
@@ -255,7 +250,6 @@ Junho / 2026
         const scheduleRenderZone = document.getElementById('schedule-render-zone');
         const btnPdf = document.getElementById('btn-pdf');
 
-        // Dynamic Global Helper to change tabs
         window.switchTab = function(tabName) {
             document.getElementById('tab-main').classList.toggle('active', tabName === 'main');
             document.getElementById('tab-input').classList.toggle('active', tabName === 'input');
@@ -272,7 +266,6 @@ Junho / 2026
             }
         };
 
-        // Auth handling
         btnLogin.addEventListener('click', () => {
             signInWithPopup(auth, provider).catch(error => console.error("Erro ao autenticar:", error));
         });
@@ -291,7 +284,6 @@ Junho / 2026
                 loginContainer.classList.add('hidden');
                 appContainer.classList.remove('hidden');
                 
-                // Realtime listen to user data inside Firestore
                 listenToUserProgress(user.uid);
             } else {
                 currentUser = null;
@@ -300,29 +292,24 @@ Junho / 2026
             }
         });
 
-        // Firestore real-time synchronize function
         function listenToUserProgress(uid) {
             const docRef = doc(db, "schedules", uid);
             onSnapshot(docRef, (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
-                    rawScheduleInput.value = data.rawText || "";
-                    progressMap = data.progress || {};
-                    if (data.rawText) {
+                    if(data.rawText) {
+                        rawScheduleInput.value = data.rawText;
+                        progressMap = data.progress || {};
                         processAndRenderSchedule(data.rawText);
                     } else {
                         renderEmptyState();
                     }
                 } else {
-                    // Injecting Default Template data if completely blank
-                    const defaultText = `Junho / 2026\n09/06 (Terça - Hoje!): Gn 1 e 2 + Gn 3 - 5\n10/06 (Quarta): Gn 6 - 9\n11/06 (Quinta): Gn 10 e 11 + Gn 12 - 15\n12/06 (Sexta): Gn 16 - 19\n🛑 13/06 e 14/06: Fim de semana (Descanso)\n15/06 (Segunda): Gn 20 - 22\n16/06 (Terça): Gn 23 - 26 + Gn 27 - 29\n17/06 (Quarta): Gn 30 - 32\n18/06 (Quinta): Gn 33 - 36 + Gn 37 - 39\n19/06 (Sexta): Gn 40 - 42\n🛑 20/06 e 21/06: Fim de semana (Descanso)\n22/06 (Segunda): Gn 43 - 46\n23/06 (Terça): Gn 47 - 50 + Jó 1 - 4\n24/06 (Quarta): Jó 5 - 7\n25/06 (Quinta): Jó 8 - 10 + Jó 11 - 13\n26/06 (Sexta): Jó 14 - 17\n🛑 27/06 e 28/06: Fim de semana (Descanso)\n29/06 (Segunda): Jó 18 - 20\n30/06 (Terça): Jó 21 - 24 + Jó 25 - 27\n📅 Julho / 2026\n01/07 (Quarta): Jó 28 - 31\n02/07 (Quinta): Jó 32 - 34 + Jó 35 - 37\n03/07 (Sexta): Jó 38 - 42\n🛑 04/07 e 05/07: Fim de semana\n06/07 (Segunda): Êx 1 - 4\n07/07 (Terça): Êx 5 - 7 + Êx 8 - 10\n08/07 (Quarta): Êx 11 - 13\n09/07 (Quinta): Êx 14 - 17 + Êx 18 - 20\n10/07 (Sexta): Êx 21 - 24.`.replace(/\\n/g, '\n');
-                    rawScheduleInput.value = defaultText;
                     renderEmptyState();
                 }
             });
         }
 
-        // Save Raw Schedule Data
         btnSaveSchedule.addEventListener('click', async () => {
             if (!currentUser) return;
             const text = rawScheduleInput.value;
@@ -330,7 +317,7 @@ Junho / 2026
                 await setDoc(doc(db, "schedules", currentUser.uid), {
                     rawText: text
                 }, { merge: true });
-                alert("Cronograma updated com sucesso!");
+                alert("Cronograma salvo com sucesso!");
                 switchTab('main');
             } catch (err) {
                 console.error("Erro ao salvar dados:", err);
@@ -338,11 +325,10 @@ Junho / 2026
             }
         });
 
-        // Parse schedule text line-by-line
         function parseScheduleText(text) {
             const lines = text.split('\n');
             let currentYear = 2026;
-            let currentMonth = 5; // Default June
+            let currentMonth = 5; 
             const monthsMap = {
                 'janeiro': 0, 'fevereiro': 1, 'março': 2, 'abril': 3, 'maio': 4, 'junho': 5,
                 'julho': 6, 'agosto': 7, 'setembro': 8, 'outubro': 9, 'novembro': 10, 'dezembro': 11
@@ -353,7 +339,6 @@ Junho / 2026
                 const trimmed = line.trim();
                 if (!trimmed) return;
 
-                // Test for Month Indicator
                 const monthMatch = trimmed.match(/(?:📅\s*)?([a-zA-ZçÇãõÁÉÍÓÚáéíóú]+)\s*\/\s*(\d{4})/i);
                 if (monthMatch) {
                     const monthStr = monthMatch[1].toLowerCase();
@@ -365,7 +350,6 @@ Junho / 2026
                     return;
                 }
 
-                // Check for dates DD/MM (Excludes weekends from being processed as readings)
                 const dateMatches = trimmed.match(/\d{2}\/\d{2}/g);
                 if (dateMatches && dateMatches.length > 0 && !/fim de semana/i.test(trimmed)) {
                     const datesParsed = dateMatches.map(dStr => {
@@ -373,7 +357,6 @@ Junho / 2026
                         return new Date(currentYear, m - 1, d);
                     });
 
-                    // Unique ID based on index + first parsed date
                     const id = `item_${index}_${dateMatches[0].replace('/', '_')}`;
                     items.push({
                         type: 'reading',
@@ -389,7 +372,6 @@ Junho / 2026
             return items;
         }
 
-        // Determine item logic color state
         function calcItemStatus(item) {
             if (progressMap[item.id]) return 'read';
 
@@ -398,7 +380,6 @@ Junho / 2026
 
             if (!item.dates || item.dates.length === 0) return 'neutral';
 
-            // Check if today matches any date explicitly
             const targetsToday = item.dates.some(d => {
                 const checkDate = new Date(d);
                 checkDate.setHours(0,0,0,0);
@@ -406,7 +387,6 @@ Junho / 2026
             });
             if (targetsToday) return 'today';
 
-            // Min/Max dates comparison
             const timestamps = item.dates.map(d => {
                 const checkDate = new Date(d);
                 checkDate.setHours(0,0,0,0);
@@ -416,9 +396,9 @@ Junho / 2026
             const minTime = Math.min(...timestamps);
 
             if (maxTime < today.getTime()) {
-                return 'past'; // Red - Late
+                return 'past'; 
             } else if (minTime > today.getTime()) {
-                return 'future'; // Blue - Future
+                return 'future'; 
             }
             return 'neutral';
         }
@@ -432,7 +412,6 @@ Junho / 2026
                 </div>`;
         }
 
-        // Core compilation of logic, styles, cards and metrics
         function processAndRenderSchedule(text) {
             scheduleItems = parseScheduleText(text);
             scheduleRenderZone.innerHTML = "";
@@ -493,7 +472,6 @@ Junho / 2026
                             </div>
                         </div>`;
                 } else if (item.type === 'note') {
-                    // Regular rest lines/notes
                     currentBlockHTML += `
                         <div class="p-3 bg-slate-50 rounded-xl text-xs text-slate-500 border border-dashed border-slate-200 flex items-center gap-2">
                             <span class="text-slate-400"><i class="fa-solid fa-circle-info"></i></span>
@@ -509,19 +487,16 @@ Junho / 2026
             scheduleRenderZone.innerHTML = htmlBuffer || `<p class='text-slate-400 text-center py-6'>Nenhum item válido encontrado.</p>`;
             document.getElementById('today-reading-text').textContent = todayReadingTextContent;
 
-            // Compute statistics numbers
             const pct = totalReadingsCount > 0 ? Math.round((completedCount / totalReadingsCount) * 100) : 0;
             document.getElementById('stats-percentage').textContent = `${pct}%`;
             document.getElementById('stats-counts').textContent = `(${completedCount} de ${totalReadingsCount} lidos)`;
             document.getElementById('stats-progress-bar').style.width = `${pct}%`;
 
-            // Bind Event Listeners on Checkboxes dynamically generated
             document.querySelectorAll('.reading-toggle').forEach(chk => {
                 chk.addEventListener('change', async (e) => {
                     if (!currentUser) return;
                     const id = e.target.getAttribute('data-id');
                     const checked = e.target.checked;
-                    
                     progressMap[id] = checked;
                     
                     try {
@@ -535,7 +510,6 @@ Junho / 2026
             });
         }
 
-        // BEAUTIFUL PDF GENERATION LOGIC
         btnPdf.addEventListener('click', () => {
             if (scheduleItems.length === 0) {
                 alert("Nenhum dado carregado para gerar PDF.");
