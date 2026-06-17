@@ -148,6 +148,13 @@
                     </div>
                 </div>
 
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                    <h3 class="text-base font-bold text-slate-900 mb-3 flex items-center gap-2"><i class="fa-solid fa-trophy text-amber-500"></i> Ranking de Leitores</h3>
+                    <div id="ranking-list" class="space-y-2">
+                        <p class="text-sm text-slate-500 text-center py-2">Carregando ranking...</p>
+                    </div>
+                </div>
+
                 <div class="flex flex-wrap gap-4 items-center justify-center sm:justify-start bg-white p-3 rounded-xl border border-slate-200 text-xs text-slate-500">
                     <span class="font-semibold text-slate-700">Legenda:</span>
                     <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-green-100 border border-green-400"></span> Concluído</span>
@@ -216,7 +223,7 @@ Junho / 2026
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBgy4WC1xgggNr_BTs4o7dfQIeYw2n16Ms",
@@ -285,12 +292,52 @@ Junho / 2026
                 appContainer.classList.remove('hidden');
                 
                 listenToUserProgress(user.uid);
+                listenToRanking();
             } else {
                 currentUser = null;
                 loginContainer.classList.remove('hidden');
                 appContainer.classList.add('hidden');
             }
         });
+
+        function listenToRanking() {
+            onSnapshot(collection(db, "rankings"), (snapshot) => {
+                const ranks = [];
+                snapshot.forEach(doc => ranks.push(doc.data()));
+                
+                // Ordena do maior para o menor
+                ranks.sort((a, b) => b.completed - a.completed);
+                
+                const rankingList = document.getElementById('ranking-list');
+                
+                if (ranks.length === 0) {
+                    rankingList.innerHTML = `<p class="text-sm text-slate-500 text-center py-2">Nenhum leitor no ranking ainda.</p>`;
+                    return;
+                }
+                
+                let html = "";
+                ranks.forEach((r, index) => {
+                    let medal = `<span class="text-slate-400 font-bold w-6 text-center text-sm">${index + 1}º</span>`;
+                    if (index === 0) medal = `<i class="fa-solid fa-medal text-yellow-500 w-6 text-center text-lg"></i>`;
+                    else if (index === 1) medal = `<i class="fa-solid fa-medal text-slate-400 w-6 text-center text-lg"></i>`;
+                    else if (index === 2) medal = `<i class="fa-solid fa-medal text-amber-700 w-6 text-center text-lg"></i>`;
+
+                    html += `
+                    <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100 transition">
+                        <div class="flex items-center gap-3">
+                            ${medal}
+                            <img src="${r.photo}" class="w-8 h-8 rounded-full border border-slate-200">
+                            <span class="text-sm font-semibold text-slate-700">${r.name}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-bold text-slate-900">${r.completed} lidos</span>
+                            <span class="text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">${r.pct}%</span>
+                        </div>
+                    </div>`;
+                });
+                rankingList.innerHTML = html;
+            });
+        }
 
         function listenToUserProgress(uid) {
             const docRef = doc(db, "schedules", uid);
@@ -493,6 +540,16 @@ Junho / 2026
             document.getElementById('stats-percentage').textContent = `${pct}%`;
             document.getElementById('stats-counts').textContent = `(${completedCount} de ${totalReadingsCount} lidos)`;
             document.getElementById('stats-progress-bar').style.width = `${pct}%`;
+
+            // Atualiza os dados de progresso no ranking para este usuário específico
+            if (currentUser) {
+                setDoc(doc(db, "rankings", currentUser.uid), {
+                    name: currentUser.displayName,
+                    photo: currentUser.photoURL || "https://www.gravatar.com/avatar/?d=mp",
+                    completed: completedCount,
+                    pct: pct
+                }, { merge: true }).catch(err => console.error("Erro ao atualizar ranking:", err));
+            }
 
             document.querySelectorAll('.reading-toggle').forEach(chk => {
                 chk.addEventListener('change', async (e) => {
