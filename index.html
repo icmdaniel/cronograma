@@ -314,8 +314,10 @@ Junho / 2026
             if (!currentUser) return;
             const text = rawScheduleInput.value;
             try {
+                // Salva o cronograma completo no Firebase
                 await setDoc(doc(db, "schedules", currentUser.uid), {
-                    rawText: text
+                    rawText: text,
+                    progress: progressMap // Mantém o progresso existente
                 }, { merge: true });
                 alert("Cronograma salvo com sucesso!");
                 switchTab('main');
